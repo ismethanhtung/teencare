@@ -1,0 +1,57 @@
+services:
+    mongo:
+        image: mongo:7
+        restart: unless-stopped
+        volumes:
+            - mongo-data:/data/db
+        ports:
+            - "27017:27017"
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "mongosh",
+                    "--quiet",
+                    "--eval",
+                    "db.runCommand({ ping: 1 }).ok",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        depends_on:
+            mongo:
+                condition: service_healthy
+        environment:
+            MONGODB_URI: mongodb://mongo:27017
+            MONGODB_DB_NAME: teenup_lms
+            APP_TIMEZONE: Asia/Ho_Chi_Minh
+            NODE_ENV: production
+            PORT: "3000"
+        ports:
+            - "3000:3000"
+
+    seed:
+        profiles: ["seed"]
+        build:
+            context: .
+            dockerfile: Dockerfile
+        depends_on:
+            mongo:
+                condition: service_healthy
+        environment:
+            MONGODB_URI: mongodb://mongo:27017
+            MONGODB_DB_NAME: teenup_lms
+            APP_TIMEZONE: Asia/Ho_Chi_Minh
+        entrypoint: ["sh", "-lc"]
+        command: ["npx --yes tsx scripts/seed.ts"]
+        working_dir: /app
+        # Note: 'seed' uses the runner image which doesn't include source.
+        # For CI/local seeding, prefer running 'npm run seed' against MONGODB_URI directly.
+
+volumes:
+    mongo-data:
