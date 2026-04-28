@@ -74,6 +74,10 @@ Trả phụ huynh + danh sách `students` (cơ bản).
 **201**: student object.
 Lỗi: `404 PARENT_NOT_FOUND`.
 
+### `PATCH /api/students/:id`
+
+Cập nhật từng phần. Body có thể chứa bất kỳ tổ hợp `name | dob | gender | currentGrade | parentId`. Lỗi: `404 STUDENT_NOT_FOUND` / `PARENT_NOT_FOUND`.
+
 ### `GET /api/students/:id`
 
 **200**
