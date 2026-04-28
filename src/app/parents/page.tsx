@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -11,11 +11,15 @@ import { DataTable, type Column } from "@/components/ui/DataTable";
 import { apiFetch, ApiError } from "@/lib/apiClient";
 import type { Parent } from "@/features/parents/schema";
 
+type FormState = { name: string; phone: string; email: string };
+const EMPTY: FormState = { name: "", phone: "", email: "" };
+
 export default function ParentsPage() {
   const [rows, setRows] = useState<Parent[]>([]);
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", email: "" });
+  const [form, setForm] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
 
   const load = () =>
@@ -25,24 +29,49 @@ export default function ParentsPage() {
     load().catch(console.error);
   }, []);
 
+  function openCreate() {
+    setEditId(null);
+    setForm(EMPTY);
+    setError(null);
+    setOpen(true);
+  }
+  function openEdit(p: Parent) {
+    setEditId(p.id);
+    setForm({ name: p.name, phone: p.phone, email: p.email ?? "" });
+    setError(null);
+    setOpen(true);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      await apiFetch("/api/parents", {
-        method: "POST",
-        body: JSON.stringify({
-          name: form.name,
-          phone: form.phone,
-          email: form.email || undefined,
-        }),
-      });
+      if (editId) {
+        await apiFetch(`/api/parents/${editId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            name: form.name,
+            phone: form.phone,
+            email: form.email ? form.email : null,
+          }),
+        });
+      } else {
+        await apiFetch("/api/parents", {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.name,
+            phone: form.phone,
+            email: form.email || undefined,
+          }),
+        });
+      }
       setOpen(false);
-      setForm({ name: "", phone: "", email: "" });
+      setForm(EMPTY);
+      setEditId(null);
       await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Không tạo được phụ huynh");
+      setError(err instanceof ApiError ? err.message : "Không lưu được");
     } finally {
       setSubmitting(false);
     }
@@ -52,6 +81,16 @@ export default function ParentsPage() {
     { key: "name", header: "Tên", render: (r) => <span className="font-medium">{r.name}</span> },
     { key: "phone", header: "SĐT", render: (r) => r.phone },
     { key: "email", header: "Email", render: (r) => r.email ?? "—" },
+    {
+      key: "actions",
+      header: "",
+      className: "px-3 py-2 text-right",
+      render: (r) => (
+        <Button variant="secondary" size="sm" onClick={() => openEdit(r)}>
+          <Pencil className="h-3.5 w-3.5" /> Sửa
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -62,7 +101,7 @@ export default function ParentsPage() {
           title="Danh sách phụ huynh"
           description={`Tổng ${rows.length} phụ huynh`}
           actions={
-            <Button onClick={() => setOpen(true)}>
+            <Button onClick={openCreate}>
               <Plus className="h-4 w-4" /> Thêm phụ huynh
             </Button>
           }
@@ -70,7 +109,11 @@ export default function ParentsPage() {
         <DataTable columns={columns} rows={rows} />
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Thêm phụ huynh">
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editId ? "Sửa phụ huynh" : "Thêm phụ huynh"}
+      >
         <form onSubmit={submit} className="space-y-4">
           <Field label="Họ tên">
             <TextInput
@@ -99,7 +142,7 @@ export default function ParentsPage() {
               Hủy
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Đang lưu..." : "Lưu"}
+              {submitting ? "Đang lưu..." : editId ? "Cập nhật" : "Lưu"}
             </Button>
           </div>
         </form>

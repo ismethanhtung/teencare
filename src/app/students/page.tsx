@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -12,19 +12,29 @@ import { apiFetch, ApiError } from "@/lib/apiClient";
 import type { Student } from "@/features/students/schema";
 import type { Parent } from "@/features/parents/schema";
 
+type FormState = {
+  name: string;
+  dob: string;
+  gender: "male" | "female" | "other";
+  currentGrade: string;
+  parentId: string;
+};
+const EMPTY: FormState = {
+  name: "",
+  dob: "",
+  gender: "male",
+  currentGrade: "",
+  parentId: "",
+};
+
 export default function StudentsPage() {
   const [rows, setRows] = useState<Student[]>([]);
   const [parents, setParents] = useState<Parent[]>([]);
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: "",
-    dob: "",
-    gender: "male" as "male" | "female" | "other",
-    currentGrade: "",
-    parentId: "",
-  });
+  const [form, setForm] = useState<FormState>(EMPTY);
 
   const reload = () =>
     Promise.all([
@@ -41,17 +51,47 @@ export default function StudentsPage() {
 
   const parentMap = new Map(parents.map((p) => [p.id, p.name]));
 
+  function openCreate() {
+    setEditId(null);
+    setForm(EMPTY);
+    setError(null);
+    setOpen(true);
+  }
+  function openEdit(s: Student) {
+    setEditId(s.id);
+    setForm({
+      name: s.name,
+      dob: s.dob,
+      gender: s.gender,
+      currentGrade: s.currentGrade,
+      parentId: s.parentId,
+    });
+    setError(null);
+    setOpen(true);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      await apiFetch("/api/students", { method: "POST", body: JSON.stringify(form) });
+      if (editId) {
+        await apiFetch(`/api/students/${editId}`, {
+          method: "PATCH",
+          body: JSON.stringify(form),
+        });
+      } else {
+        await apiFetch("/api/students", {
+          method: "POST",
+          body: JSON.stringify(form),
+        });
+      }
       setOpen(false);
-      setForm({ name: "", dob: "", gender: "male", currentGrade: "", parentId: "" });
+      setForm(EMPTY);
+      setEditId(null);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Không tạo được học sinh");
+      setError(err instanceof ApiError ? err.message : "Không lưu được");
     } finally {
       setSubmitting(false);
     }
@@ -63,6 +103,16 @@ export default function StudentsPage() {
     { key: "gender", header: "Giới tính", render: (r) => r.gender },
     { key: "currentGrade", header: "Lớp", render: (r) => r.currentGrade },
     { key: "parent", header: "Phụ huynh", render: (r) => parentMap.get(r.parentId) ?? "—" },
+    {
+      key: "actions",
+      header: "",
+      className: "px-3 py-2 text-right",
+      render: (r) => (
+        <Button variant="secondary" size="sm" onClick={() => openEdit(r)}>
+          <Pencil className="h-3.5 w-3.5" /> Sửa
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -73,7 +123,7 @@ export default function StudentsPage() {
           title="Danh sách học sinh"
           description={`Tổng ${rows.length} học sinh`}
           actions={
-            <Button onClick={() => setOpen(true)} disabled={parents.length === 0}>
+            <Button onClick={openCreate} disabled={parents.length === 0}>
               <Plus className="h-4 w-4" /> Thêm học sinh
             </Button>
           }
@@ -86,7 +136,11 @@ export default function StudentsPage() {
         <DataTable columns={columns} rows={rows} />
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Thêm học sinh">
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editId ? "Sửa học sinh" : "Thêm học sinh"}
+      >
         <form onSubmit={submit} className="space-y-4">
           <Field label="Họ tên">
             <TextInput
@@ -118,7 +172,7 @@ export default function StudentsPage() {
               <Select
                 value={form.gender}
                 onChange={(e) =>
-                  setForm({ ...form, gender: e.target.value as typeof form.gender })
+                  setForm({ ...form, gender: e.target.value as FormState["gender"] })
                 }
               >
                 <option value="male">Nam</option>
@@ -147,7 +201,7 @@ export default function StudentsPage() {
               Hủy
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Đang lưu..." : "Lưu"}
+              {submitting ? "Đang lưu..." : editId ? "Cập nhật" : "Lưu"}
             </Button>
           </div>
         </form>

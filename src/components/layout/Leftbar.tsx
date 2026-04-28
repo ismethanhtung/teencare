@@ -20,6 +20,7 @@ import {
     Package,
     BookOpen,
     GanttChartSquare,
+    Activity,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/cn";
@@ -102,6 +103,12 @@ const LEFTBAR_NAV: LeftbarNavGroup[] = [
         groupLabel: "System",
         sectionIcon: PlugZap,
         items: [
+            {
+                id: "health",
+                label: "Health check",
+                icon: Activity,
+                href: "/health",
+            },
             { id: "docs", label: "Tài liệu", icon: BookOpen, href: "/docs" },
         ],
     },

@@ -37,8 +37,7 @@ async function ensureIndexes(db: Db): Promise<void> {
         {
             key: { email: 1 },
             unique: true,
-            sparse: true,
-            name: "uniq_email_sparse",
+            name: "uniq_email_partial",
             partialFilterExpression: { email: { $type: "string" } },
         },
     ]);
